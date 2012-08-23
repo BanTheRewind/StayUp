@@ -239,7 +239,7 @@ namespace StayUp
 			sEventLog = new EventLog( kLogTitle, Environment.MachineName, kLogTitle );
 
 			// Define properties
-			sApplication = "sample.exe";
+			sApplication = "";
 			sEventLogEnabled = true;
 			sInfoInterval = TimeSpan.FromSeconds( 3600.0 );
 			sNotRespondingTimeout = TimeSpan.FromSeconds( 15.0 );
