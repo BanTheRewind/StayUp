@@ -59,6 +59,11 @@ namespace StayUp
 		/// Console line separator
 		/// </summary>
 		private const string	kSeparator				= "\n========================================";
+
+		/// <summary>
+		/// Version number
+		/// </summary>
+		private const string	kVersion				= "1.1.0.2";
 		#endregion
 		#region Static members
 		/// <summary>
@@ -85,11 +90,6 @@ namespace StayUp
 		/// Information log timer 
 		/// </summary>
 		private static Timer	sInfoTimer;
-
-		/// <summary>
-		/// Flag set when process stops responding
-		/// </summary>
-		private static bool		sNotResponding;
 
 		/// <summary>
 		/// Flag if process should restart when it stops responding
@@ -155,9 +155,6 @@ namespace StayUp
 		/// </summary>
 		private static bool Launch()
 		{
-			// Reset not responding flah
-			sNotResponding = false;
-
 			// Get application path
 			string appPath = Path.GetDirectoryName( Assembly.GetExecutingAssembly().Location ) + "\\" + sApplication;
 
@@ -234,7 +231,7 @@ namespace StayUp
 			sEventLog = new EventLog( kLogTitle, Environment.MachineName, kLogTitle );
 
 			// Define properties
-			sApplication = "";
+			sApplication = "CrashTest.exe";
 			sEventLogEnabled = false;
 			sInfoInterval = TimeSpan.FromSeconds( 3600.0 );
 			sNotRespondingMonitoring = false;
@@ -274,8 +271,7 @@ namespace StayUp
 						} else {
 							WriteHelp();
 						}
-						++i;
-					} else if ( args[ i ] == "-t" ) {
+					} else if ( args[ i ] == "-r" ) {
 						sNotRespondingMonitoring = true;
 					} else {
 						WriteHelp();
@@ -284,7 +280,10 @@ namespace StayUp
 			}
 
 			// Intro
-			Console.WriteLine( "\nSTAY UP 1.1.0.1" + kSeparator );
+			Console.WriteLine( "\nSTAY UP " + kVersion + kSeparator + "\n" + 
+				"Event logging " + ( sEventLogEnabled ? "enabled" : "disabled" ) + "\n" + 
+				"Responsiveness monitoring " + ( sNotRespondingMonitoring ? "enabled" : "disabled" ) + 
+				kSeparator );
 			
 			// Launch application
 			if ( !Launch() ) {
@@ -292,7 +291,6 @@ namespace StayUp
 				return;
 			}
 			Console.ReadLine();
-			
 		}
 
 		/// <summary>
@@ -397,19 +395,9 @@ namespace StayUp
 			sTotalProcessorTime = sProcess.TotalProcessorTime;
 
 			// Monitor application responsiveness, force close if frozen
-			if ( sNotRespondingMonitoring ) {
-				if ( !sProcess.Responding ) {
-					if ( !sNotResponding ) {
-						sNotResponding = true;
-						Log( "Process has stopped responding:\n>> Process name: " + sProcessName );
-						try {
-							sProcess.Kill();
-						} catch ( Exception ex ) {
-						}
-					}
-				} else {
-					sNotResponding = false;
-				}
+			if ( sNotRespondingMonitoring && !sProcess.Responding ) {
+				Log( "Process has stopped responding:\n>> Process name: " + sProcessName );
+				sProcess.Kill();
 			}
 		}
 		#endregion
