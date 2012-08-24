@@ -332,9 +332,9 @@ namespace StayUp
 		/// </summary>
 		static void StartTimers()
 		{
-			double delay = 1.0;
-			sInfoTimer = new Timer( new TimerCallback( InfoTimerHandler ), null, TimeSpan.FromSeconds( delay ), sInfoInterval );
-			sUpdateTimer = new Timer( new TimerCallback( UpdateTimerHandler ), null, TimeSpan.FromSeconds( delay ), TimeSpan.FromMilliseconds( (double)sNotRespondingTimeout ) );
+			TimeSpan delay = TimeSpan.FromMilliseconds( (double)sNotRespondingTimeout );
+			sInfoTimer = new Timer( new TimerCallback( InfoTimerHandler ), null, TimeSpan.FromSeconds( 1.0 ), sInfoInterval );
+			sUpdateTimer = new Timer( new TimerCallback( UpdateTimerHandler ), null, delay, delay );
 		}
 
 		/// <summary>

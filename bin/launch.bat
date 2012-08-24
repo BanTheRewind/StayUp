@@ -1,1 +1,1 @@
-StayUp CrashTest.exe -e -i 3600 -t 5
+StayUp CrashTest.exe -e -i 3600 -t 10
