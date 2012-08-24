@@ -231,7 +231,7 @@ namespace StayUp
 			sEventLog = new EventLog( kLogTitle, Environment.MachineName, kLogTitle );
 
 			// Define properties
-			sApplication = "CrashTest.exe";
+			sApplication = "";
 			sEventLogEnabled = false;
 			sInfoInterval = TimeSpan.FromSeconds( 3600.0 );
 			sNotRespondingMonitoring = false;
