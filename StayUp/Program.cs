@@ -39,6 +39,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace StayUp
@@ -50,6 +51,7 @@ namespace StayUp
 	class Program
 	{
 		#region Constants
+		
 		/// <summary>
 		/// Application log title
 		/// </summary>
@@ -64,8 +66,10 @@ namespace StayUp
 		/// Version number
 		/// </summary>
 		private const string	kVersion				= "1.1.0.2";
+		
 		#endregion
 		#region Static members
+		
 		/// <summary>
 		/// Process name (eg, "MyApp.exe")
 		/// </summary>
@@ -92,9 +96,14 @@ namespace StayUp
 		private static Timer	sInfoTimer;
 
 		/// <summary>
-		/// Flag if process should restart when it stops responding
+		/// Flag set when process stops responding
 		/// </summary>
-		private static bool		sNotRespondingMonitoring;
+		private static bool		sNotResponding;
+
+		/// <summary>
+		/// Time, in milliseconds, to wait for an application before restarting it
+		/// </summary>
+		private static int		sNotRespondingTimeout;
 
 		/// <summary>
 		/// Peak memory size of target process
@@ -135,8 +144,27 @@ namespace StayUp
 		/// Flags whether help message has been displayed
 		/// </summary>
 		private static bool		sWroteHelpMessage;
+		
+		#endregion
+		#region External
+
+		/// <summary>
+		/// Sends timeout message to process
+		/// </summary>
+		/// <returns>Process handle</returns>
+		[DllImport( "user32.dll", CharSet = CharSet.Auto )]
+		private static extern IntPtr SendMessageTimeout(
+			HandleRef hWnd,
+			int msg,
+			IntPtr wParam,
+			IntPtr lParam,
+			int flags,
+			int timeout,
+			out IntPtr pdwResult );
+
 		#endregion
 		#region Methods
+
 		/// <summary>
 		/// Builds and return general info string
 		/// </summary>
@@ -151,10 +179,35 @@ namespace StayUp
 		}
 
 		/// <summary>
+		/// Checks if process is responding
+		/// </summary>
+		/// <returns>True if responding</returns>
+		private static bool IsResponding()
+		{
+			if ( sProcess == null || sProcess.HasExited ) {
+				return false;
+			}
+			HandleRef handleRef = new HandleRef( sProcess, sProcess.MainWindowHandle );
+			IntPtr lpdwResult;
+			IntPtr lResult = SendMessageTimeout(
+				handleRef,
+				0,
+				IntPtr.Zero,
+				IntPtr.Zero,
+				2,
+				sNotRespondingTimeout,
+				out lpdwResult );
+			return lResult != IntPtr.Zero;
+		}
+
+		/// <summary>
 		/// Launch the application
 		/// </summary>
 		private static bool Launch()
 		{
+			// Reset not responding flag
+			sNotResponding = false;
+
 			// Get application path
 			string appPath = Path.GetDirectoryName( Assembly.GetExecutingAssembly().Location ) + "\\" + sApplication;
 
@@ -234,7 +287,7 @@ namespace StayUp
 			sApplication = "";
 			sEventLogEnabled = false;
 			sInfoInterval = TimeSpan.FromSeconds( 3600.0 );
-			sNotRespondingMonitoring = false;
+			sNotRespondingTimeout = 5000;
 			sPeakMemorySize = 0L;
 			sProcessId = -1;
 			sProcessName = "";
@@ -271,8 +324,15 @@ namespace StayUp
 						} else {
 							WriteHelp();
 						}
-					} else if ( args[ i ] == "-r" ) {
-						sNotRespondingMonitoring = true;
+					} else if ( args[ i ] == "-t" ) {
+						++i;
+						double timeout = 5.0;
+						if ( i < args.Length && double.TryParse( args[ i ], out timeout ) ) {
+							sNotRespondingTimeout = (int)( timeout * 1000.0 );
+						} else {
+							WriteHelp();
+						}
+
 					} else {
 						WriteHelp();
 					}	
@@ -280,10 +340,7 @@ namespace StayUp
 			}
 
 			// Intro
-			Console.WriteLine( "\nSTAY UP " + kVersion + kSeparator + "\n" + 
-				"Event logging " + ( sEventLogEnabled ? "enabled" : "disabled" ) + "\n" + 
-				"Responsiveness monitoring " + ( sNotRespondingMonitoring ? "enabled" : "disabled" ) + 
-				kSeparator );
+			Console.WriteLine( "\nSTAY UP " + kVersion + kSeparator );
 			
 			// Launch application
 			if ( !Launch() ) {
@@ -291,6 +348,7 @@ namespace StayUp
 				return;
 			}
 			Console.ReadLine();
+			
 		}
 
 		/// <summary>
@@ -319,19 +377,21 @@ namespace StayUp
 		{
 			if ( !sWroteHelpMessage ) {
 				sWroteHelpMessage = true;
-				Console.WriteLine( "Usage:   StayUp [process] -e -f [framerate] -i [interval] -r" );
+				Console.WriteLine( "Usage:   StayUp [process] -e -f [framerate] -i [interval] -t [timeout]" );
 				Console.WriteLine( "         -e     Enabled event log. Disabled by default." ); 
 				Console.WriteLine( "         -f     Application frame rate. Default is 60." );
 				Console.WriteLine( "         -i     Interval at which information is logged, " );
 				Console.WriteLine( "                in seconds. Default is 3600." );
-				Console.WriteLine( "         -r     Restart process if it becomes unresponsive. " );
-				Console.WriteLine( "                Off by default." );
+				Console.WriteLine( "         -t     Time to wait for a process to respond before forcing it" );
+				Console.WriteLine( "                to restart, in seconds. Default is 5." );
 				Console.WriteLine( "" );
-				Console.WriteLine( "Example: StayUp MyApp.exe -e -f 60 -i 3600 -r" );
+				Console.WriteLine( "Example: StayUp MyApp.exe -e -f 60 -i 3600 -t 5" );
 			}
 		}
+		
 		#endregion
 		#region Events
+		
 		/// <summary>
 		/// Handles application error
 		/// </summary>
@@ -395,11 +455,20 @@ namespace StayUp
 			sTotalProcessorTime = sProcess.TotalProcessorTime;
 
 			// Monitor application responsiveness, force close if frozen
-			if ( sNotRespondingMonitoring && !sProcess.Responding ) {
-				Log( "Process has stopped responding:\n>> Process name: " + sProcessName );
-				sProcess.Kill();
+			if ( !IsResponding() ) {
+				if ( !sNotResponding ) {
+					sNotResponding = true;
+					Log( "Process has stopped responding:\n>> Process name: " + sProcessName );
+					try {
+						sProcess.Kill();
+					} catch ( Exception ex ) {
+					}
+				}
+			} else {
+				sNotResponding = false;
 			}
 		}
+
 		#endregion
 	}
 
