@@ -65,7 +65,7 @@ namespace StayUp
 		/// <summary>
 		/// Version number
 		/// </summary>
-		private const string	kVersion				= "1.1.0.2";
+		private const string	kVersion				= "1.1.0.5";
 		
 		#endregion
 		#region Static members
