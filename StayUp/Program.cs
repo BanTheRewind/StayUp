@@ -190,7 +190,7 @@ namespace StayUp
 				IntPtr.Zero,
 				IntPtr.Zero,
 				2,
-				1000,//sNotRespondingTimeout,
+				sNotRespondingTimeout,
 				out lpdwResult );
 			return lResult != IntPtr.Zero;
 		}
