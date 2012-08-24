@@ -74,7 +74,7 @@ namespace StayUp
 		/// <summary>
 		/// Event logging flag
 		/// </summary>
-		private static bool	sEventLogEnabled;
+		private static bool		sEventLogEnabled;
 
 		/// <summary>
 		/// Information log timer interval
@@ -87,24 +87,19 @@ namespace StayUp
 		private static Timer	sInfoTimer;
 
 		/// <summary>
-		/// Time elapsed since target process became non-reponsive
+		/// Flag set when process stops responding
 		/// </summary>
-		private static TimeSpan sNotRespondingTime;
+		private static bool		sNotResponding;
 
 		/// <summary>
-		/// Unresponsive duration before the target process is forced closed
+		/// Flag if process should restart when it stops responding
 		/// </summary>
-		private static TimeSpan	sNotRespondingTimeout;
+		private static bool		sNotRespondingMonitoring;
 
 		/// <summary>
-		/// Peak paged memory size of target process
+		/// Peak memory size of target process
 		/// </summary>
-		private static long     sPeakPagedMemorySize;
-
-		/// <summary>
-		/// Peak virtual memory size of target process
-		/// </summary>
-		private static long     sPeakVirtualMemorySize;
+		private static long     sPeakMemorySize;
 
 		/// <summary>
 		/// The target process
@@ -151,8 +146,8 @@ namespace StayUp
 			return ">> Process name: " + sProcessName + "\n" +
 				">> Process ID: " + sProcessId + "\n" +
 				">> Duration: " + sTotalProcessorTime.ToString() + "\n" + 
-				">> Machine name: " + Environment.MachineName + "\n" + 
-				">> Peak memory (paged/virtual): " + sPeakPagedMemorySize + "/" + sPeakVirtualMemorySize;
+				">> Machine name: " + Environment.MachineName + "\n" +
+				">> Peak memory: " + sPeakMemorySize;
 		}
 
 		/// <summary>
@@ -160,8 +155,8 @@ namespace StayUp
 		/// </summary>
 		private static bool Launch()
 		{
-			// Reset not responding clock
-			sNotRespondingTime = TimeSpan.FromMilliseconds( 0 );
+			// Reset not responding flah
+			sNotResponding = false;
 
 			// Get application path
 			string appPath = Path.GetDirectoryName( Assembly.GetExecutingAssembly().Location ) + "\\" + sApplication;
@@ -240,11 +235,10 @@ namespace StayUp
 
 			// Define properties
 			sApplication = "";
-			sEventLogEnabled = true;
+			sEventLogEnabled = false;
 			sInfoInterval = TimeSpan.FromSeconds( 3600.0 );
-			sNotRespondingTimeout = TimeSpan.FromSeconds( 15.0 );
-			sPeakPagedMemorySize = 0L;
-			sPeakVirtualMemorySize = 0L;
+			sNotRespondingMonitoring = false;
+			sPeakMemorySize = 0L;
 			sProcessId = -1;
 			sProcessName = "";
 			sUpdateInterval = TimeSpan.FromMilliseconds( 33.0 ); // 60fps
@@ -261,48 +255,40 @@ namespace StayUp
 
 			// Read arguments
 			if ( args.Length > 1 ) {
-				for ( int i = 1; i < args.Length; i += 2 ) {
-					if ( i + 1 < args.Length ) {
-						if ( args[ i ] == "-e" ) {
-							int logEnabled = 1;
-							if ( int.TryParse( args[ i + 1 ], out logEnabled ) ) {
-								sEventLogEnabled = logEnabled > 0;
-							} else {
-								WriteHelp();
-							}
-						} else if ( args[ i ] == "-f" ) {
-							double framerate = 60.0;
-							if ( double.TryParse( args[ i + 1 ], out framerate ) ) {
-								sUpdateInterval = TimeSpan.FromMilliseconds( 1.0 / framerate );
-							} else {
-								WriteHelp();
-							}
-						} else if ( args[ i ] == "-i" ) {
-							double interval = 15.0;
-							if ( double.TryParse( args[ i + 1 ], out interval ) ) {
-								sInfoInterval = TimeSpan.FromSeconds( interval );
-							} else {
-								WriteHelp();
-							}
-						} else if ( args[ i ] == "-t" ) {
-							double timeout = 15.0;
-							if ( double.TryParse( args[ i + 1 ], out timeout ) ) {
-								sNotRespondingTimeout = TimeSpan.FromSeconds( timeout );
-							} else {
-								WriteHelp();
-							}
+				for ( int i = 1; i < args.Length; ++i ) {
+					if ( args[ i ] == "-e" ) {
+						sEventLogEnabled = true;
+					} else if ( args[ i ] == "-f" ) {
+						++i;
+						double framerate = 60.0;
+						if ( i < args.Length && double.TryParse( args[ i ], out framerate ) ) {
+							sUpdateInterval = TimeSpan.FromMilliseconds( 1.0 / framerate );
 						} else {
 							WriteHelp();
-						}	
-					}
+						}
+					} else if ( args[ i ] == "-i" ) {
+						++i;
+						double interval = 15.0;
+						if ( i < args.Length && double.TryParse( args[ i ], out interval ) ) {
+							sInfoInterval = TimeSpan.FromSeconds( interval );
+						} else {
+							WriteHelp();
+						}
+						++i;
+					} else if ( args[ i ] == "-t" ) {
+						sNotRespondingMonitoring = true;
+					} else {
+						WriteHelp();
+					}	
 				}
 			}
 
 			// Intro
-			Console.WriteLine( "\nSTAY UP 1.1.0" + kSeparator );
+			Console.WriteLine( "\nSTAY UP 1.1.0.1" + kSeparator );
 			
 			// Launch application
 			if ( !Launch() ) {
+				Environment.Exit( 1 );
 				return;
 			}
 			Console.ReadLine();
@@ -335,15 +321,15 @@ namespace StayUp
 		{
 			if ( !sWroteHelpMessage ) {
 				sWroteHelpMessage = true;
-				Console.WriteLine( "Usage:   StayUp [process] -e [0/1] -f [framerate] -i [interval] -t [timeout]" );
-				Console.WriteLine( "         -e     Event log enabled or disabled. Default is 1 (true)." ); 
+				Console.WriteLine( "Usage:   StayUp [process] -e -f [framerate] -i [interval] -r" );
+				Console.WriteLine( "         -e     Enabled event log. Disabled by default." ); 
 				Console.WriteLine( "         -f     Application frame rate. Default is 60." );
 				Console.WriteLine( "         -i     Interval at which information is logged, " );
 				Console.WriteLine( "                in seconds. Default is 3600." );
-				Console.WriteLine( "         -t     Unresponsive time before forced restart, " );
-				Console.WriteLine( "                in seconds. Default is 15." );
+				Console.WriteLine( "         -r     Restart process if it becomes unresponsive. " );
+				Console.WriteLine( "                Off by default." );
 				Console.WriteLine( "" );
-				Console.WriteLine( "Example: StayUp MyApp.exe -e 1 -f 60 -i 3600 -t 15" );
+				Console.WriteLine( "Example: StayUp MyApp.exe -e -f 60 -i 3600 -r" );
 			}
 		}
 		#endregion
@@ -407,19 +393,23 @@ namespace StayUp
 			}
 
 			// Update statistics
-			sPeakPagedMemorySize = sProcess.PeakPagedMemorySize64;
-			sPeakVirtualMemorySize = sProcess.PeakVirtualMemorySize64;
+			sPeakMemorySize = sProcess.WorkingSet64;
 			sTotalProcessorTime = sProcess.TotalProcessorTime;
 
 			// Monitor application responsiveness, force close if frozen
-			if ( !sProcess.Responding ) {
-				sNotRespondingTime.Add( sUpdateInterval );
-				if ( sNotRespondingTime > sNotRespondingTimeout ) {
-					Log( sProcessName + " has stopped responding for at least " + sNotRespondingTimeout.ToString() + "." );
-					sProcess.Close();
+			if ( sNotRespondingMonitoring ) {
+				if ( !sProcess.Responding ) {
+					if ( !sNotResponding ) {
+						sNotResponding = true;
+						Log( "Process has stopped responding:\n>> Process name: " + sProcessName );
+						try {
+							sProcess.Kill();
+						} catch ( Exception ex ) {
+						}
+					}
+				} else {
+					sNotResponding = false;
 				}
-			} else {
-				sNotRespondingTime = TimeSpan.FromMilliseconds( 0.0 );
 			}
 		}
 		#endregion
