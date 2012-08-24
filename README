@@ -2,15 +2,14 @@ Stay Up
 =======
 Process health, monitoring, and logging for Windows.
 
-Usage:   StayUp [process] -e -f [framerate] -i [interval] -t [timeout]
+Usage:   StayUp [process] -e -i [interval] -t [timeout]
          -e     Enabled event log. Disabled by default.
-         -f     Application frame rate. Default is 60.
          -i     Interval at which information is logged,
                 in seconds. Default is 3600.
          -t     Time to wait for a process to respond before forcing it
                 to restart, in seconds. Default is 5.
 
-Example: StayUp MyApp.exe -e -f 60 -i 3600 -t 5
+Example: StayUp MyApp.exe -e -i 3600 -t 5
 
 When event log is enabled, information and errors are recorded logged and 
 viewable in Windows' Event Viewer. Open the Event Viewer and go to 
@@ -18,7 +17,7 @@ viewable in Windows' Event Viewer. Open the Event Viewer and go to
 
 -----------------------------------------
 
-Version 1.1.0.3
+Version 1.1.0.4
 
 -----------------------------------------
 

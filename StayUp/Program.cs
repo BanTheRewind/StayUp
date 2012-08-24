@@ -69,11 +69,11 @@ namespace StayUp
 		
 		#endregion
 		#region Static members
-		
+
 		/// <summary>
 		/// Process name (eg, "MyApp.exe")
 		/// </summary>
-		private static string   sApplication;
+		private static string   sApplication			= "";
 
 		/// <summary>
 		/// Event log
@@ -83,12 +83,12 @@ namespace StayUp
 		/// <summary>
 		/// Event logging flag
 		/// </summary>
-		private static bool		sEventLogEnabled;
+		private static bool		sEventLogEnabled		= false;
 
 		/// <summary>
 		/// Information log timer interval
 		/// </summary>
-		private static TimeSpan sInfoInterval;
+		private static TimeSpan sInfoInterval			= TimeSpan.FromSeconds( 3600.0 );
 
 		/// <summary>
 		/// Information log timer 
@@ -98,17 +98,17 @@ namespace StayUp
 		/// <summary>
 		/// Flag set when process stops responding
 		/// </summary>
-		private static bool		sNotResponding;
+		private static bool		sNotResponding			= false;
 
 		/// <summary>
 		/// Time, in milliseconds, to wait for an application before restarting it
 		/// </summary>
-		private static int		sNotRespondingTimeout;
+		private static int		sNotRespondingTimeout	= 5000;
 
 		/// <summary>
 		/// Peak memory size of target process
 		/// </summary>
-		private static long     sPeakMemorySize;
+		private static long     sPeakMemorySize			= 0L;
 
 		/// <summary>
 		/// The target process
@@ -118,22 +118,17 @@ namespace StayUp
 		/// <summary>
 		/// Target process ID
 		/// </summary>
-		private static int		sProcessId;
+		private static int		sProcessId				= -1;
 
 		/// <summary>
 		/// Target process name
 		/// </summary>
-		private static string	sProcessName;
+		private static string	sProcessName			= "";
 
 		/// <summary>
 		/// Process duration
 		/// </summary>
-		private static TimeSpan sTotalProcessorTime;
-
-		/// <summary>
-		/// Duration of main application loop
-		/// </summary>
-		private static TimeSpan	sUpdateInterval;
+		private static TimeSpan sTotalProcessorTime		= TimeSpan.FromMilliseconds( 0.0 );
 
 		/// <summary>
 		/// Main application timer
@@ -143,7 +138,7 @@ namespace StayUp
 		/// <summary>
 		/// Flags whether help message has been displayed
 		/// </summary>
-		private static bool		sWroteHelpMessage;
+		private static bool		sWroteHelpMessage		= false;
 		
 		#endregion
 		#region External
@@ -195,7 +190,7 @@ namespace StayUp
 				IntPtr.Zero,
 				IntPtr.Zero,
 				2,
-				sNotRespondingTimeout,
+				1000,//sNotRespondingTimeout,
 				out lpdwResult );
 			return lResult != IntPtr.Zero;
 		}
@@ -283,17 +278,6 @@ namespace StayUp
 			}
 			sEventLog = new EventLog( kLogTitle, Environment.MachineName, kLogTitle );
 
-			// Define properties
-			sApplication = "";
-			sEventLogEnabled = false;
-			sInfoInterval = TimeSpan.FromSeconds( 3600.0 );
-			sNotRespondingTimeout = 5000;
-			sPeakMemorySize = 0L;
-			sProcessId = -1;
-			sProcessName = "";
-			sUpdateInterval = TimeSpan.FromMilliseconds( 33.0 ); // 60fps
-			sWroteHelpMessage = false;
-
 			// Read application name
 			if ( sApplication.Length <= 0 ) {
 				sApplication = args.Length > 0 ? args[ 0 ] : "";
@@ -308,14 +292,6 @@ namespace StayUp
 				for ( int i = 1; i < args.Length; ++i ) {
 					if ( args[ i ] == "-e" ) {
 						sEventLogEnabled = true;
-					} else if ( args[ i ] == "-f" ) {
-						++i;
-						double framerate = 60.0;
-						if ( i < args.Length && double.TryParse( args[ i ], out framerate ) ) {
-							sUpdateInterval = TimeSpan.FromMilliseconds( 1.0 / framerate );
-						} else {
-							WriteHelp();
-						}
 					} else if ( args[ i ] == "-i" ) {
 						++i;
 						double interval = 15.0;
@@ -358,7 +334,7 @@ namespace StayUp
 		{
 			double delay = 1.0;
 			sInfoTimer = new Timer( new TimerCallback( InfoTimerHandler ), null, TimeSpan.FromSeconds( delay ), sInfoInterval );
-			sUpdateTimer = new Timer( new TimerCallback( UpdateTimerHandler ), null, TimeSpan.FromSeconds( delay ), sUpdateInterval );
+			sUpdateTimer = new Timer( new TimerCallback( UpdateTimerHandler ), null, TimeSpan.FromSeconds( delay ), TimeSpan.FromMilliseconds( (double)sNotRespondingTimeout ) );
 		}
 
 		/// <summary>
@@ -377,15 +353,14 @@ namespace StayUp
 		{
 			if ( !sWroteHelpMessage ) {
 				sWroteHelpMessage = true;
-				Console.WriteLine( "Usage:   StayUp [process] -e -f [framerate] -i [interval] -t [timeout]" );
+				Console.WriteLine( "Usage:   StayUp [process] -e -i [interval] -t [timeout]" );
 				Console.WriteLine( "         -e     Enabled event log. Disabled by default." ); 
-				Console.WriteLine( "         -f     Application frame rate. Default is 60." );
 				Console.WriteLine( "         -i     Interval at which information is logged, " );
 				Console.WriteLine( "                in seconds. Default is 3600." );
 				Console.WriteLine( "         -t     Time to wait for a process to respond before forcing it" );
 				Console.WriteLine( "                to restart, in seconds. Default is 5." );
 				Console.WriteLine( "" );
-				Console.WriteLine( "Example: StayUp MyApp.exe -e -f 60 -i 3600 -t 5" );
+				Console.WriteLine( "Example: StayUp MyApp.exe -e -i 3600 -t 5" );
 			}
 		}
 		
