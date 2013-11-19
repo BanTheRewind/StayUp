@@ -1,6 +1,6 @@
 ﻿/*
 * 
-* Copyright (c) 2012, Ban the Rewind
+* Copyright (c) 2013, Ban the Rewind
 * All rights reserved.
 * 
 * Redistribution and use in source and binary forms, with or 
@@ -34,7 +34,6 @@
 * 
 */
 
-// Imports
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -44,7 +43,6 @@ using System.Threading;
 
 namespace StayUp
 {
-
 	/// <summary>
 	/// Main application
 	/// </summary>
@@ -55,17 +53,17 @@ namespace StayUp
 		/// <summary>
 		/// Application log title
 		/// </summary>
-		private const string	kLogTitle				= "Stay Up";
+		const string	kLogTitle				= "Stay Up";
 
 		/// <summary>
 		/// Console line separator
 		/// </summary>
-		private const string	kSeparator				= "\n========================================";
+		const string	kSeparator				= "\n========================================";
 
 		/// <summary>
 		/// Version number
 		/// </summary>
-		private const string	kVersion				= "1.1.0.5";
+		const string	kVersion				= "1.1.0.6";
 		
 		#endregion
 		#region Static members
@@ -271,10 +269,20 @@ namespace StayUp
 		{
 			// Create event log if it does not exist
 			if ( !System.Diagnostics.EventLog.Exists( kLogTitle ) ) {
-				System.Diagnostics.EventLog.LogNameFromSourceName( kLogTitle, Environment.MachineName );
+				try {
+					System.Diagnostics.EventLog.LogNameFromSourceName( kLogTitle, Environment.MachineName );
+				} catch ( System.Security.SecurityException ex ) {
+					Console.WriteLine( ex.Message + "\n" );
+					return;
+				}
 			}
 			if ( !System.Diagnostics.EventLog.SourceExists( kLogTitle ) ) {
-				System.Diagnostics.EventLog.CreateEventSource( kLogTitle, kLogTitle );
+				try {
+					System.Diagnostics.EventLog.CreateEventSource( kLogTitle, kLogTitle );
+				} catch ( System.Security.SecurityException ex ) {
+					Console.WriteLine( ex.Message + "\n" );
+					return;
+				}
 			}
 			sEventLog = new EventLog( kLogTitle, Environment.MachineName, kLogTitle );
 
@@ -437,6 +445,7 @@ namespace StayUp
 					try {
 						sProcess.Kill();
 					} catch ( Exception ex ) {
+						Console.WriteLine( ex.Message + "\n" );
 					}
 				}
 			} else {
