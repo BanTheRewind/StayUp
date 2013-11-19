@@ -268,21 +268,21 @@ namespace StayUp
 		public static void Main( string[] args )
 		{
 			// Create event log if it does not exist
-			if ( !System.Diagnostics.EventLog.Exists( kLogTitle ) ) {
-				try {
+			try {
+				if ( !System.Diagnostics.EventLog.Exists( kLogTitle ) ) {
 					System.Diagnostics.EventLog.LogNameFromSourceName( kLogTitle, Environment.MachineName );
-				} catch ( System.Security.SecurityException ex ) {
-					Console.WriteLine( ex.Message + "\n" );
-					return;
 				}
-			}
-			if ( !System.Diagnostics.EventLog.SourceExists( kLogTitle ) ) {
-				try {
-					System.Diagnostics.EventLog.CreateEventSource( kLogTitle, kLogTitle );
-				} catch ( System.Security.SecurityException ex ) {
-					Console.WriteLine( ex.Message + "\n" );
-					return;
+				if ( !System.Diagnostics.EventLog.SourceExists( kLogTitle ) ) {
+					try {
+						System.Diagnostics.EventLog.CreateEventSource( kLogTitle, kLogTitle );
+					} catch ( System.Security.SecurityException ex ) {
+						Console.WriteLine( ex.Message + "\n" );
+						return;
+					}
 				}
+			} catch ( System.Security.SecurityException ex ) {
+				Console.WriteLine( ex.Message + "\n" );
+				return;
 			}
 			sEventLog = new EventLog( kLogTitle, Environment.MachineName, kLogTitle );
 
